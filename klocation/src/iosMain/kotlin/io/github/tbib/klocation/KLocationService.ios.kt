@@ -91,4 +91,8 @@ actual class KLocationService : NSObject(), CLLocationManagerDelegateProtocol {
         // Close the flow when the channel is closed
         close()
     }
+
+    actual fun isLocationEnabled(): Boolean {
+        return CLLocationManager.locationServicesEnabled()
+    }
 }

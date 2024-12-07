@@ -1,5 +1,7 @@
 package io.github.tbib.klocation
 
+import android.content.Context
+import android.location.LocationManager
 import android.os.Looper
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -54,6 +56,13 @@ actual class KLocationService {
             Looper.getMainLooper()
         )
         return locationFlow
+    }
+
+    actual fun isLocationEnabled(): Boolean {
+        val context = AndroidKLocationService.getActivity()
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
     }
 
 }

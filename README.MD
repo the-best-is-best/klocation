@@ -99,3 +99,10 @@ Column(
 
 }
 ```
+
+### Note can check for is location enabled in v 1.0.1
+
+```kotlin
+  val locationService = KLocationService()
+val isEnabledLocation = locationService.isLocationEnabled()
+```
