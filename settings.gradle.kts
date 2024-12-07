@@ -1,4 +1,4 @@
-rootProject.name = "lib"
+rootProject.name = "klocation"
 
 pluginManagement {
     repositories {
