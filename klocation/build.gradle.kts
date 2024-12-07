@@ -40,7 +40,7 @@ tasks.withType<PublishToMavenRepository> {
 extra["packageNameSpace"] = "io.github.klocation"
 extra["groupId"] = "io.github.the-best-is-best"
 extra["artifactId"] = "klocation"
-extra["version"] = "1.0.0"
+extra["version"] = "1.0.1"
 extra["packageName"] = "KLocation"
 extra["packageUrl"] = "https://github.com/the-best-is-best/klocation"
 extra["packageDescription"] =
