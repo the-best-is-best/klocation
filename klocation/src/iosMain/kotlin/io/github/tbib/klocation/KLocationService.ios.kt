@@ -3,96 +3,107 @@ package io.github.tbib.klocation
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.first
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
+import platform.CoreLocation.kCLAuthorizationStatusNotDetermined
 import platform.CoreLocation.kCLLocationAccuracyNearestTenMeters
 import platform.Foundation.NSError
+import platform.Foundation.NSLog
 import platform.darwin.NSObject
+
 
 actual class KLocationService : NSObject(), CLLocationManagerDelegateProtocol {
     private val locationManager = CLLocationManager()
-    private val locationUpdateChannel = Channel<Pair<Double, Double>>(Channel.UNLIMITED)
+    private val locationUpdateChannel = MutableSharedFlow<Location>(replay = 1)
+    private val gpsStateFlow = MutableSharedFlow<Boolean>(replay = 1)
 
     init {
         locationManager.delegate = this
         locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-        locationManager.startUpdatingLocation()
     }
 
-
     @OptIn(ExperimentalForeignApi::class)
-    override fun locationManager(
-        manager: CLLocationManager,
-        didUpdateLocations: List<*>
-    ) {
-        val location = didUpdateLocations.lastOrNull() as? CLLocation
-        location?.let {
+    override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
+        val location = (didUpdateLocations.lastOrNull() as? CLLocation)?.let {
+            // Using memScoped to handle the coordinate's pointer safely
             memScoped {
-                val coordinate = it.coordinate.ptr
-                val latitude = coordinate.pointed.latitude
-                val longitude = coordinate.pointed.longitude
-
-                // Emit the updated location to the channel
-                locationUpdateChannel.trySend(Pair(latitude, longitude)).isSuccess
+                val coordinatePtr = it.coordinate.ptr
+                val latitude = coordinatePtr.pointed.latitude
+                val longitude = coordinatePtr.pointed.longitude
+                Location(latitude, longitude)
             }
         }
+
+        location?.let { locationUpdateChannel.tryEmit(it) }
     }
 
-    override fun locationManager(
-        manager: CLLocationManager,
-        didFailWithError: NSError
-    ) {
-        println("Failed to retrieve location: ${didFailWithError.localizedDescription}")
-        // Optionally, close the channel to indicate an error state if necessary
-        locationUpdateChannel.close()
+
+    override fun locationManagerDidChangeAuthorization(manager: CLLocationManager) {
+        val isEnabled = CLLocationManager.locationServicesEnabled() &&
+                (manager.authorizationStatus == kCLAuthorizationStatusAuthorizedAlways ||
+                        manager.authorizationStatus == kCLAuthorizationStatusAuthorizedWhenInUse)
+        gpsStateFlow.tryEmit(isEnabled)
     }
 
-    // Function to get the current location one-time
-    @OptIn(ExperimentalForeignApi::class)
+    override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
+        NSLog("Failed to retrieve location: ${didFailWithError.localizedDescription}")
+    }
+
     actual suspend fun getCurrentLocation(): Location {
-        val deferred = CompletableDeferred<Location>()
+        locationManager.startUpdatingLocation()
 
-        // Start a coroutine to receive the location asynchronously
-        locationManager.delegate = object : NSObject(), CLLocationManagerDelegateProtocol {
-            override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
-                val location = didUpdateLocations.lastOrNull() as? CLLocation
-                location?.let {
-                    memScoped {
-                        val coordinate = it.coordinate.ptr
-                        val latitude = coordinate.pointed.latitude
-                        val longitude = coordinate.pointed.longitude
+        val location = locationUpdateChannel.first()
+        locationManager.stopUpdatingLocation()
 
-                        deferred.complete(Location(latitude, longitude))
-                        locationManager.stopUpdatingLocation() // Stop updates after receiving the first location
-                    }
-                }
-            }
-
-            override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
-                deferred.completeExceptionally(Exception("Failed to retrieve location: ${didFailWithError.localizedDescription}"))
-            }
-        }
-
-        return deferred.await() // This will block until the result is received
+        return location
     }
 
-
-    // Function to start location updates and emit them to a Flow
-    actual fun startLocationUpdates(): Flow<Location> = channelFlow {
-        // Continuously receive location updates from the channel and emit them to the flow
-        for (location in locationUpdateChannel) {
-            send(Location(location.first, location.second))
+    actual fun startLocationUpdates(intervalMillis: Long): Flow<Location> = channelFlow {
+        locationManager.startUpdatingLocation()
+        locationUpdateChannel.collect { location ->
+            send(location)
+            delay(intervalMillis)
         }
-        // Close the flow when the channel is closed
-        close()
+        locationManager.stopUpdatingLocation()
     }
 
     actual fun isLocationEnabled(): Boolean {
         return CLLocationManager.locationServicesEnabled()
+    }
+
+    actual fun enableLocation() {
+        when (locationManager.authorizationStatus) {
+            kCLAuthorizationStatusNotDetermined -> {
+                locationManager.requestWhenInUseAuthorization()
+                NSLog("Location permission requested.")
+            }
+
+            kCLAuthorizationStatusAuthorizedWhenInUse,
+            kCLAuthorizationStatusAuthorizedAlways -> {
+                NSLog("Location permission already granted.")
+            }
+
+            else -> {
+                NSLog("Location permission denied or restricted.")
+            }
+        }
+    }
+
+    actual fun gpsStateFlow(): Flow<Boolean> {
+        // Emit initial state
+        val isEnabled = CLLocationManager.locationServicesEnabled() &&
+                (locationManager.authorizationStatus == kCLAuthorizationStatusAuthorizedAlways ||
+                        locationManager.authorizationStatus == kCLAuthorizationStatusAuthorizedWhenInUse)
+        gpsStateFlow.tryEmit(isEnabled)
+
+        return gpsStateFlow
     }
 }

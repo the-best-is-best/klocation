@@ -38,66 +38,172 @@ fun MainViewController(): UIViewController {
 ### Second in android Main
 
 ```kotlin
-AndroidKLocationService.initialization(this)
+AndroidKLocationService.initialization(this, AccuracyPriority.BALANCED_POWER_ACCURACY)
 ```
 
 ### in commonMain
 
 ```kotlin
-  val locationService = KLocationService()
-var userLocation by remember { mutableStateOf<Location?>(null) }
+  
+@Composable
+internal fun App() = AppTheme {
+    var isInit by remember { mutableStateOf(false) }
 
-var permissionLocation by remember { mutableStateOf(false) }
-val coroutineScope = rememberCoroutineScope()
+    val factory = rememberPermissionsControllerFactory()
+    val controller = remember(factory) {
+        factory.createPermissionsController()
+    }
 
-// for listener location
-DisposableEffect(locationService) {
-    val job = coroutineScope.launch {
-        locationService.startLocationUpdates().collect { newLocation ->
-            userLocation = newLocation
+    BindEffect(controller)
+
+    val viewModel by remember { mutableStateOf(LocationViewModel(controller)) }
+
+    // LaunchedEffect for requesting permission
+    LaunchedEffect(isInit) {
+        if(!isInit) {
+            viewModel.init()
+            isInit = true
+        }
+
+    }
+    val userLocation by remember { derivedStateOf { viewModel.userLocation } }
+    val isGPSNotOpen by remember { derivedStateOf { viewModel.isGPSNotOpen } }
+    val isLocationGranted by remember { derivedStateOf { viewModel.permissionLocation } }
+
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(userLocation) {
+        isLoading = userLocation == null
+    }
+
+    LaunchedEffect(isLocationGranted){
+        if(isLocationGranted){
+            viewModel.addListenerLocation()
         }
     }
-    onDispose {
-        job.cancel()
+
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        if (isLoading) {
+            Text(
+                text = "Fetching location...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        } else {
+            Text(
+                text = "User Location:",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Latitude: ${userLocation?.latitude}\nLongitude: ${userLocation?.longitude}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+
+        TopToast(
+            isVisible = !isGPSNotOpen,
+            message = "GPS is not active. Tap to enable.",
+            onClick = { viewModel.enableLocation() }
+        )
     }
 }
 
-// for get current location
-LaunchedEffect(permissionLocation) {
-    if (userLocation == null) {
-        userLocation = locationService.getCurrentLocation()
-    }
-}
-
-
-val factory = rememberPermissionsControllerFactory()
-val controller = remember(factory) {
-    factory.createPermissionsController()
-}
-
-BindEffect(controller)
-LaunchedEffect(permissionLocation) {
-    if (!permissionLocation) {
-        controller.providePermission(Permission.LOCATION)
-        permissionLocation = controller.isPermissionGranted(Permission.LOCATION)
-
-    }
-}
-
-Column(
-    modifier = Modifier
-        .fillMaxSize()
-        .windowInsetsPadding(WindowInsets.safeDrawing)
-        .padding(16.dp),
-    horizontalAlignment = Alignment.CenterHorizontally
+@Composable
+fun TopToast(
+    message: String,
+    isVisible: Boolean,
+    onClick: () -> Unit
 ) {
-    Text(
-        text = "UserLocation  lat ${userLocation?.latitude} - lon ${userLocation?.longitude}",
-//            fontFamily = FontFamily(Font(Res.font.IndieFlower_Regular)),
-        style = MaterialTheme.typography.displayLarge
-    )
-
+    if (isVisible) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.error,
+                    shape = MaterialTheme.shapes.medium
+                )
+                .clickable { onClick() }
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.onError,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+    }
 }
+
+
+
+class LocationViewModel(private  val controller: PermissionsController): ViewModel() {
+    private val locationService = KLocationService()
+
+     var userLocation by  mutableStateOf<Location?>(null)
+    var isGPSNotOpen by mutableStateOf(false)
+
+     var permissionLocation by  mutableStateOf(false)
+
+    fun init () {
+        viewModelScope.launch {
+            if (!permissionLocation) {
+                controller.providePermission(Permission.LOCATION)
+                permissionLocation = controller.isPermissionGranted(Permission.LOCATION)
+            }
+            // Request location permission if not already granted
+            locationService.gpsStateFlow().collect { isGps ->
+                isGPSNotOpen = isGps
+            }
+
+        }
+//        viewModelScope.launch {
+//
+//            if(permissionLocation) {
+//                locationService.startLocationUpdates().collect { newLocation ->
+//                    userLocation = newLocation
+//                }
+//            }
+
+        //        }
+    }
+        fun addListenerLocation() {
+            viewModelScope.launch {
+                if (controller.isPermissionGranted(Permission.LOCATION)) {
+                    locationService.startLocationUpdates().collect { newLocation ->
+                        userLocation = newLocation
+                    }
+                }
+            }
+        }
+
+
+    fun enableLocation(){
+        locationService.enableLocation()
+    }
+}
+
+```
+
+### Note can check GPS and enable it in v 1.0.2
+
+```kotlin
+  val locationService = KLocationService()
+   location.gpsStateFlow() // listener for gps
+   location.enableLocation()
+   location.isLocationEnabled() //for check location is enabled or not one time
 ```
 
 ### Note can check for is location enabled in v 1.0.1
