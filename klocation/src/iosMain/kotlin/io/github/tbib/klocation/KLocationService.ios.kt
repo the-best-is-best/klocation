@@ -1,5 +1,6 @@
 package io.github.tbib.klocation
 
+import androidx.compose.runtime.Composable
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
@@ -114,6 +115,11 @@ actual class KLocationService : NSObject(), CLLocationManagerDelegateProtocol {
         }
     }
 
+    @Composable
+    actual fun EnableLocation() {
+        enableLocation()
+    }
+
     private fun emitCurrentGpsState() {
         val isEnabled = CLLocationManager.locationServicesEnabled() &&
                 (locationManager.authorizationStatus == kCLAuthorizationStatusAuthorizedAlways ||
@@ -140,14 +146,6 @@ actual class KLocationService : NSObject(), CLLocationManagerDelegateProtocol {
             send(isEnabled)
         }
     }
-
-//   actual fun hasLocationPermissionFlow(): StateFlow<Boolean> {
-//        // Initial check for the authorization status
-//        updateLocationPermissionState(locationManager)
-//
-//        // Return the StateFlow to be observed
-//        return locationPermissionState
-//    }
 
     // Method to update the permission state
     private fun updateLocationPermissionState(locationManager: CLLocationManager) {

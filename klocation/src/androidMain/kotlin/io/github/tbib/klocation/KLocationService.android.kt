@@ -5,8 +5,21 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.location.LocationManager
+import android.net.Uri
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -20,11 +33,16 @@ import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 
 
 actual class KLocationService {
+    companion object {
+        private val _isPermissionGranted = MutableSharedFlow<Boolean>(replay = 1)
+
+    }
 
     private val context = AndroidKLocationService.getActivity()
 
@@ -32,20 +50,19 @@ actual class KLocationService {
         LocationServices.getFusedLocationProviderClient(context)
 
     private val _locationFlow = MutableSharedFlow<Location>(replay = 1)
-    private val _isLocationEnabledFlow = MutableSharedFlow<Boolean>(replay = 1)
+    private val _isGPSEnabledFlow = MutableSharedFlow<Boolean>(replay = 1)
 
     init {
         runBlocking {
-            _isLocationEnabledFlow.tryEmit(isLocationEnabled())
+            _isGPSEnabledFlow.tryEmit(isLocationEnabled())
         }
-        // Register a BroadcastReceiver to monitor location service changes
         val filter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
         context.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 val isEnabled = isLocationEnabled()
 
-                if (_isLocationEnabledFlow.replayCache.first() != isEnabled) {
-                    _isLocationEnabledFlow.tryEmit(isEnabled)
+                if (_isGPSEnabledFlow.replayCache.first() != isEnabled) {
+                    _isGPSEnabledFlow.tryEmit(isEnabled)
                 }
             }
         }, filter)
@@ -97,7 +114,6 @@ actual class KLocationService {
             false
         }
     }
-
     actual fun enableLocation() {
         if (!isLocationEnabled()) {
             val locationRequest = LocationRequest.Builder(
@@ -117,16 +133,72 @@ actual class KLocationService {
                     exception.startResolutionForResult(context, 1)
                 } else {
                     Log.e("LocationService", "Location settings error: ${exception.message}")
+
+                    // Check if the user has denied permission and open the settings if needed
+                    if (exception is ApiException && exception.statusCode == CommonStatusCodes.RESOLUTION_REQUIRED) {
+                        openAppSettings()
+                    }
                 }
             }
         }
     }
 
-    actual fun gpsStateFlow(): Flow<Boolean> {
-        return _isLocationEnabledFlow.asSharedFlow()
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
     }
 
-//    actual fun hasLocationPermissionFlow(): StateFlow<Boolean> {
-//        TODO("Not yet implemented")
-//    }
+    @OptIn(ExperimentalPermissionsApi::class)
+    @Composable
+    actual fun EnableLocation() {
+        val locationPermissionState = rememberPermissionState(
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        )
+
+        // Check if the permission is already granted
+        if (!locationPermissionState.status.isGranted) {
+            // Check if the permission was denied permanently
+            if (locationPermissionState.status.shouldShowRationale) {
+                // Permission denied permanently, prompt user to open app settings
+                LaunchedEffect(Unit) {
+                    openAppSettings()
+                }
+            } else {
+                // Request permission
+                LaunchedEffect(Unit) {
+                    locationPermissionState.launchPermissionRequest()
+                }
+            }
+        } else {
+            enableLocation()
+        }
+    }
+
+    actual fun gpsStateFlow(): Flow<Boolean> = combine(
+        _isGPSEnabledFlow.asSharedFlow(),
+        _isPermissionGranted.asSharedFlow()
+    ) { isGPSEnabled, isPermissionGranted ->
+        isGPSEnabled && isPermissionGranted
+    }
+
+
+    @OptIn(ExperimentalPermissionsApi::class)
+    @Composable
+    fun ListenerToPermission() {
+        val locationPermissionState = rememberPermissionState(
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        )
+
+        val isLocationPermissionEnabled by remember {
+            derivedStateOf { locationPermissionState.status.isGranted }
+        }
+        LaunchedEffect(isLocationPermissionEnabled) {
+            _isPermissionGranted.tryEmit(isLocationPermissionEnabled)
+        }
+    }
+
+
 }

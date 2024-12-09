@@ -10,6 +10,7 @@ maven-publish = "0.30.0"
 permissions = "0.18.1"
 playServicesLocation = "21.3.0"
 lifecycleLivedataCoreKtx = "2.8.7"
+accompanistPermissions = "0.36.0"
 
 
 
@@ -27,6 +28,7 @@ permissions-compose = { module = "dev.icerock.moko:permissions-compose", version
 permissions-test = { module = "dev.icerock.moko:permissions-test", version.ref = "permissions" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 androidx-lifecycle-livedata-core-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-core-ktx", version.ref = "lifecycleLivedataCoreKtx" }
+accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
 
 [plugins]
 

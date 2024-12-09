@@ -5,50 +5,53 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dev.icerock.moko.permissions.Permission
-import dev.icerock.moko.permissions.PermissionsController
 import io.github.tbib.klocation.KLocationService
 import io.github.tbib.klocation.Location
 import kotlinx.coroutines.launch
 
-class LocationViewModel(private val controller: PermissionsController) : ViewModel() {
+class LocationViewModel : ViewModel() {
     private val locationService = KLocationService()
 
     var userLocation by mutableStateOf<Location?>(null)
     var isGPSOpen by mutableStateOf(false)
 
-    var permissionLocation by mutableStateOf(false)
+    var requestPermission by mutableStateOf(false)
+
+
+
 
     fun init() {
-        viewModelScope.launch {
+        requestPermission = true
+        //  viewModelScope.launch {
+//
+//            try {
+//                controller.providePermission(Permission.LOCATION)
+//            } catch (e: Exception) {
+//
+//            }
+//
+//        }
 
-            try {
-                controller.providePermission(Permission.LOCATION)
-                permissionLocation = controller.isPermissionGranted(Permission.LOCATION)
-            } catch (e: Exception) {
-
-            }
-        }
         viewModelScope.launch {
 
 
             // Request location permission if not already granted
             locationService.gpsStateFlow().collect { isGps ->
                 println("gps is $isGps")
-                if (isGps) {
-                    addListenerLocation()
-                }
                 isGPSOpen = isGps
+                addListenerLocation()
             }
 
         }
     }
 
     private fun addListenerLocation() {
-        println("addListenerLocation has called")
-        viewModelScope.launch {
-            locationService.startLocationUpdates().collect { newLocation ->
-                userLocation = newLocation
+        println("addListenerLocation has called $isGPSOpen")
+        if (isGPSOpen) {
+            viewModelScope.launch {
+                locationService.startLocationUpdates().collect { newLocation ->
+                    userLocation = newLocation
+                }
             }
         }
     }
@@ -57,7 +60,11 @@ class LocationViewModel(private val controller: PermissionsController) : ViewMod
         return locationService.getCurrentLocation()
     }
 
+    fun enableGPSAndLocation() {
+        requestPermission = true
+    }
 
+    @Deprecated("use enableGPSAndLocation")
     fun enableLocation() {
         locationService.enableLocation()
     }

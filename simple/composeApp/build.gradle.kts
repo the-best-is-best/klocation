@@ -40,7 +40,7 @@ kotlin {
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
             implementation(libs.lifecycle.viewmodel.compose)
-            implementation(libs.androidx.lifecycle.livedata.core.ktx)
+
             implementation(project(":klocation"))
         }
 
@@ -93,10 +93,6 @@ dependencies {
 
     commonMainApi(libs.permissions)
 
-    // compose multiplatform
-    commonMainApi(libs.permissions.compose) // permissions api + compose extensions
-
-    commonTestImplementation(libs.permissions.test)
 
 }
 

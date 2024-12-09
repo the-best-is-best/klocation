@@ -22,7 +22,7 @@ KLocation is available on `mavenCentral()`.
 ## Install
 
 ```kotlin
-implementation("io.github.the-best-is-best:klocation:1.0.3")
+implementation("io.github.the-best-is-best:klocation:1.0.4")
 ```
 
 ### First in iosMain
@@ -39,6 +39,12 @@ fun MainViewController(): UIViewController {
 
 ```kotlin
 AndroidKLocationService.initialization(this, AccuracyPriority.BALANCED_POWER_ACCURACY)
+setContent {
+    // add this
+    KLocationService().ListenerToPermission()
+    App()
+}
+}
 ```
 
 ### in commonMain
@@ -80,14 +86,8 @@ import kotlinx.coroutines.launch
 internal fun App() = AppTheme {
     var isInit by remember { mutableStateOf(false) }
 
-    val factory = rememberPermissionsControllerFactory()
-    val controller = remember(factory) {
-        factory.createPermissionsController()
-    }
 
-    BindEffect(controller)
-
-    val viewModel by remember { mutableStateOf(LocationViewModel(controller)) }
+    val viewModel by remember { mutableStateOf(LocationViewModel()) }
 
     val scope = rememberCoroutineScope()
     // LaunchedEffect for requesting permission
@@ -107,8 +107,10 @@ internal fun App() = AppTheme {
     LaunchedEffect(userLocation) {
         isLoading = userLocation == null
     }
-
-
+    if (viewModel.requestPermission) {
+        KLocationService().EnableLocation()
+        viewModel.requestPermission = false
+    }
 
 
     Column(
@@ -150,7 +152,9 @@ internal fun App() = AppTheme {
         TopToast(
             isVisible = !isGPSOpen,
             message = "GPS is not active. Tap to enable.",
-            onClick = { viewModel.enableLocation() }
+            onClick = {
+                viewModel.enableGPSAndLocation()
+            }
         )
     }
 }
@@ -183,45 +187,47 @@ fun TopToast(
     }
 }
 
-
-class LocationViewModel(private val controller: PermissionsController) : ViewModel() {
+class LocationViewModel : ViewModel() {
     private val locationService = KLocationService()
 
     var userLocation by mutableStateOf<Location?>(null)
     var isGPSOpen by mutableStateOf(false)
 
-    var permissionLocation by mutableStateOf(false)
+    var requestPermission by mutableStateOf(false)
+
 
     fun init() {
-        viewModelScope.launch {
+        requestPermission = true
+        //  viewModelScope.launch {
+//
+//            try {
+//                controller.providePermission(Permission.LOCATION)
+//            } catch (e: Exception) {
+//
+//            }
+//
+//        }
 
-            try {
-                controller.providePermission(Permission.LOCATION)
-                permissionLocation = controller.isPermissionGranted(Permission.LOCATION)
-            } catch (e: Exception) {
-
-            }
-        }
         viewModelScope.launch {
 
 
             // Request location permission if not already granted
             locationService.gpsStateFlow().collect { isGps ->
                 println("gps is $isGps")
-                if (isGps) {
-                    addListenerLocation()
-                }
                 isGPSOpen = isGps
+                addListenerLocation()
             }
 
         }
     }
 
     private fun addListenerLocation() {
-        println("addListenerLocation has called")
-        viewModelScope.launch {
-            locationService.startLocationUpdates().collect { newLocation ->
-                userLocation = newLocation
+        println("addListenerLocation has called $isGPSOpen")
+        if (isGPSOpen) {
+            viewModelScope.launch {
+                locationService.startLocationUpdates().collect { newLocation ->
+                    userLocation = newLocation
+                }
             }
         }
     }
@@ -230,11 +236,16 @@ class LocationViewModel(private val controller: PermissionsController) : ViewMod
         return locationService.getCurrentLocation()
     }
 
+    fun enableGPSAndLocation() {
+        requestPermission = true
+    }
 
+    @Deprecated("use enableGPSAndLocation")
     fun enableLocation() {
         locationService.enableLocation()
     }
 }
+
 
 
 ```

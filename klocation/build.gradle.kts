@@ -7,8 +7,8 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
     alias(libs.plugins.multiplatform)
-//    alias(libs.plugins.compose.compiler)
-//    alias(libs.plugins.compose)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.compose)
     alias(libs.plugins.android.library)
     id("maven-publish")
     id("signing")
@@ -40,7 +40,7 @@ tasks.withType<PublishToMavenRepository> {
 extra["packageNameSpace"] = "io.github.klocation"
 extra["groupId"] = "io.github.the-best-is-best"
 extra["artifactId"] = "klocation"
-extra["version"] = "1.0.3"
+extra["version"] = "1.0.4"
 extra["packageName"] = "KLocation"
 extra["packageUrl"] = "https://github.com/the-best-is-best/klocation"
 extra["packageDescription"] =
@@ -121,7 +121,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-//            implementation(compose.runtime)
+            implementation(compose.runtime)
 //            implementation(compose.foundation)
 //            implementation(compose.material3)
 //            implementation(compose.components.resources)
@@ -138,9 +138,10 @@ kotlin {
 
         androidMain.dependencies {
 //            implementation(compose.uiTooling)
-//            implementation(libs.androidx.activityCompose)
+            implementation(libs.androidx.activityCompose)
             implementation(libs.play.services.location)
             implementation(libs.kotlinx.coroutines.play.services)
+            implementation(libs.accompanist.permissions)
 
 
         }
@@ -165,6 +166,9 @@ android {
             targetCompatibility = JavaVersion.VERSION_17
         }
 
+    }
+    buildFeatures {
+        compose = true
     }
 }
 

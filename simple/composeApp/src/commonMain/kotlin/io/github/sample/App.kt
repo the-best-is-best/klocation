@@ -25,23 +25,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.icerock.moko.permissions.compose.BindEffect
-import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
 import io.github.sample.theme.AppTheme
+import io.github.tbib.klocation.KLocationService
 import kotlinx.coroutines.launch
 
 @Composable
 internal fun App() = AppTheme {
     var isInit by remember { mutableStateOf(false) }
 
-    val factory = rememberPermissionsControllerFactory()
-    val controller = remember(factory) {
-        factory.createPermissionsController()
-    }
 
-    BindEffect(controller)
-
-    val viewModel by remember { mutableStateOf(LocationViewModel(controller)) }
+    val viewModel by remember { mutableStateOf(LocationViewModel()) }
 
     val scope = rememberCoroutineScope()
     // LaunchedEffect for requesting permission
@@ -61,8 +54,10 @@ internal fun App() = AppTheme {
     LaunchedEffect(userLocation) {
         isLoading = userLocation == null
     }
-
-
+    if (viewModel.requestPermission) {
+        KLocationService().EnableLocation()
+        viewModel.requestPermission = false
+    }
 
 
     Column(
@@ -104,7 +99,9 @@ internal fun App() = AppTheme {
         TopToast(
             isVisible = !isGPSOpen,
             message = "GPS is not active. Tap to enable.",
-            onClick = { viewModel.enableLocation() }
+            onClick = {
+                viewModel.enableGPSAndLocation()
+            }
         )
     }
 }
