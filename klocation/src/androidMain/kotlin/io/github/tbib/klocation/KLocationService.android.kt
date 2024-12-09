@@ -125,4 +125,8 @@ actual class KLocationService {
     actual fun gpsStateFlow(): Flow<Boolean> {
         return _isLocationEnabledFlow.asSharedFlow()
     }
+
+//    actual fun hasLocationPermissionFlow(): StateFlow<Boolean> {
+//        TODO("Not yet implemented")
+//    }
 }

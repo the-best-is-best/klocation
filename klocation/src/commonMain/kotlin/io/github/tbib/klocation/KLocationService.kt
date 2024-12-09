@@ -8,6 +8,7 @@ expect class KLocationService() {
     fun enableLocation()
     fun isLocationEnabled(): Boolean
     fun gpsStateFlow(): Flow<Boolean>
+//    fun hasLocationPermissionFlow(): StateFlow<Boolean>
 
 }
 

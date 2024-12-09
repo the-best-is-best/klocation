@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +20,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import dev.icerock.moko.permissions.compose.BindEffect
 import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
 import io.github.sample.theme.AppTheme
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun App() = AppTheme {
@@ -40,16 +43,18 @@ internal fun App() = AppTheme {
 
     val viewModel by remember { mutableStateOf(LocationViewModel(controller)) }
 
+    val scope = rememberCoroutineScope()
     // LaunchedEffect for requesting permission
     LaunchedEffect(isInit) {
         if (!isInit) {
             viewModel.init()
             isInit = true
+
         }
 
     }
     val userLocation by remember { derivedStateOf { viewModel.userLocation } }
-    val isGPSNotOpen by remember { derivedStateOf { viewModel.isGPSNotOpen } }
+    val isGPSNotOpen by remember { derivedStateOf { viewModel.isGPSOpen } }
     val isLocationGranted by remember { derivedStateOf { viewModel.permissionLocation } }
 
     var isLoading by remember { mutableStateOf(true) }
@@ -58,11 +63,7 @@ internal fun App() = AppTheme {
         isLoading = userLocation == null
     }
 
-    LaunchedEffect(isLocationGranted) {
-        if (isLocationGranted) {
-            viewModel.addListenerLocation()
-        }
-    }
+
 
 
     Column(
@@ -91,6 +92,14 @@ internal fun App() = AppTheme {
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 8.dp)
             )
+
+            ElevatedButton(onClick = {
+                scope.launch {
+                    println("location ${viewModel.getLocation()}")
+                }
+            }) {
+                Text("print location")
+            }
         }
 
         TopToast(

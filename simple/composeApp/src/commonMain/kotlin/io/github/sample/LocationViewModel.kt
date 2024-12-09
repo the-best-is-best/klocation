@@ -15,41 +15,46 @@ class LocationViewModel(private val controller: PermissionsController) : ViewMod
     private val locationService = KLocationService()
 
     var userLocation by mutableStateOf<Location?>(null)
-    var isGPSNotOpen by mutableStateOf(false)
+    var isGPSOpen by mutableStateOf(false)
 
     var permissionLocation by mutableStateOf(false)
 
     fun init() {
         viewModelScope.launch {
-            if (!permissionLocation) {
+
+            try {
                 controller.providePermission(Permission.LOCATION)
                 permissionLocation = controller.isPermissionGranted(Permission.LOCATION)
+            } catch (e: Exception) {
+
             }
+        }
+        viewModelScope.launch {
+
+
             // Request location permission if not already granted
             locationService.gpsStateFlow().collect { isGps ->
-                isGPSNotOpen = isGps
+                println("gps is $isGps")
+                if (isGps) {
+                    addListenerLocation()
+                }
+                isGPSOpen = isGps
             }
 
         }
-//        viewModelScope.launch {
-//
-//            if(permissionLocation) {
-//                locationService.startLocationUpdates().collect { newLocation ->
-//                    userLocation = newLocation
-//                }
-//            }
-
-        //        }
     }
 
-    fun addListenerLocation() {
+    private fun addListenerLocation() {
+        println("addListenerLocation has called")
         viewModelScope.launch {
-            if (controller.isPermissionGranted(Permission.LOCATION)) {
-                locationService.startLocationUpdates().collect { newLocation ->
-                    userLocation = newLocation
-                }
+            locationService.startLocationUpdates().collect { newLocation ->
+                userLocation = newLocation
             }
         }
+    }
+
+    suspend fun getLocation(): Location {
+        return locationService.getCurrentLocation()
     }
 
 
