@@ -54,8 +54,7 @@ internal fun App() = AppTheme {
 
     }
     val userLocation by remember { derivedStateOf { viewModel.userLocation } }
-    val isGPSNotOpen by remember { derivedStateOf { viewModel.isGPSOpen } }
-    val isLocationGranted by remember { derivedStateOf { viewModel.permissionLocation } }
+    val isGPSOpen by remember { derivedStateOf { viewModel.isGPSOpen } }
 
     var isLoading by remember { mutableStateOf(true) }
 
@@ -103,7 +102,7 @@ internal fun App() = AppTheme {
         }
 
         TopToast(
-            isVisible = !isGPSNotOpen,
+            isVisible = !isGPSOpen,
             message = "GPS is not active. Tap to enable.",
             onClick = { viewModel.enableLocation() }
         )

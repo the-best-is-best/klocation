@@ -22,7 +22,7 @@ KLocation is available on `mavenCentral()`.
 ## Install
 
 ```kotlin
-implementation("io.github.the-best-is-best:klocation:1.0.2")
+implementation("io.github.the-best-is-best:klocation:1.0.3")
 ```
 
 ### First in iosMain
@@ -44,7 +44,38 @@ AndroidKLocationService.initialization(this, AccuracyPriority.BALANCED_POWER_ACC
 ### in commonMain
 
 ```kotlin
-  
+  package io.github.sample
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import dev.icerock.moko.permissions.compose.BindEffect
+import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
+import io.github.sample.theme.AppTheme
+import kotlinx.coroutines.launch
+
 @Composable
 internal fun App() = AppTheme {
     var isInit by remember { mutableStateOf(false) }
@@ -58,17 +89,18 @@ internal fun App() = AppTheme {
 
     val viewModel by remember { mutableStateOf(LocationViewModel(controller)) }
 
+    val scope = rememberCoroutineScope()
     // LaunchedEffect for requesting permission
     LaunchedEffect(isInit) {
-        if(!isInit) {
+        if (!isInit) {
             viewModel.init()
             isInit = true
+
         }
 
     }
     val userLocation by remember { derivedStateOf { viewModel.userLocation } }
-    val isGPSNotOpen by remember { derivedStateOf { viewModel.isGPSNotOpen } }
-    val isLocationGranted by remember { derivedStateOf { viewModel.permissionLocation } }
+    val isGPSOpen by remember { derivedStateOf { viewModel.isGPSOpen } }
 
     var isLoading by remember { mutableStateOf(true) }
 
@@ -76,11 +108,7 @@ internal fun App() = AppTheme {
         isLoading = userLocation == null
     }
 
-    LaunchedEffect(isLocationGranted){
-        if(isLocationGranted){
-            viewModel.addListenerLocation()
-        }
-    }
+
 
 
     Column(
@@ -109,10 +137,18 @@ internal fun App() = AppTheme {
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 8.dp)
             )
+
+            ElevatedButton(onClick = {
+                scope.launch {
+                    println("location ${viewModel.getLocation()}")
+                }
+            }) {
+                Text("print location")
+            }
         }
 
         TopToast(
-            isVisible = !isGPSNotOpen,
+            isVisible = !isGPSOpen,
             message = "GPS is not active. Tap to enable.",
             onClick = { viewModel.enableLocation() }
         )
@@ -148,52 +184,58 @@ fun TopToast(
 }
 
 
-
-class LocationViewModel(private  val controller: PermissionsController): ViewModel() {
+class LocationViewModel(private val controller: PermissionsController) : ViewModel() {
     private val locationService = KLocationService()
 
-     var userLocation by  mutableStateOf<Location?>(null)
-    var isGPSNotOpen by mutableStateOf(false)
+    var userLocation by mutableStateOf<Location?>(null)
+    var isGPSOpen by mutableStateOf(false)
 
-     var permissionLocation by  mutableStateOf(false)
+    var permissionLocation by mutableStateOf(false)
 
-    fun init () {
+    fun init() {
         viewModelScope.launch {
-            if (!permissionLocation) {
+
+            try {
                 controller.providePermission(Permission.LOCATION)
                 permissionLocation = controller.isPermissionGranted(Permission.LOCATION)
+            } catch (e: Exception) {
+
             }
+        }
+        viewModelScope.launch {
+
+
             // Request location permission if not already granted
             locationService.gpsStateFlow().collect { isGps ->
-                isGPSNotOpen = isGps
-            }
-
-        }
-//        viewModelScope.launch {
-//
-//            if(permissionLocation) {
-//                locationService.startLocationUpdates().collect { newLocation ->
-//                    userLocation = newLocation
-//                }
-//            }
-
-        //        }
-    }
-        fun addListenerLocation() {
-            viewModelScope.launch {
-                if (controller.isPermissionGranted(Permission.LOCATION)) {
-                    locationService.startLocationUpdates().collect { newLocation ->
-                        userLocation = newLocation
-                    }
+                println("gps is $isGps")
+                if (isGps) {
+                    addListenerLocation()
                 }
+                isGPSOpen = isGps
+            }
+
+        }
+    }
+
+    private fun addListenerLocation() {
+        println("addListenerLocation has called")
+        viewModelScope.launch {
+            locationService.startLocationUpdates().collect { newLocation ->
+                userLocation = newLocation
             }
         }
+    }
+
+    suspend fun getLocation(): Location {
+        return locationService.getCurrentLocation()
+    }
 
 
-    fun enableLocation(){
+    fun enableLocation() {
         locationService.enableLocation()
     }
 }
+
 
 ```
 
