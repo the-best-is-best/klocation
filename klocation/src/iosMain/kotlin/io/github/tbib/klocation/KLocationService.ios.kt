@@ -26,6 +26,7 @@ import platform.UIKit.UIAlertActionStyleDefault
 import platform.UIKit.UIAlertController
 import platform.UIKit.UIAlertControllerStyleAlert
 import platform.UIKit.UIApplication
+import platform.UIKit.UIApplicationOpenSettingsURLString
 import platform.darwin.NSObject
 
 actual class KLocationService : NSObject(), CLLocationManagerDelegateProtocol {
@@ -171,7 +172,7 @@ fun showAlertToPromptSettings() {
             UIAlertActionStyleDefault
         ) { _ ->
             // Open the app-specific settings page
-            val appSettingsURL = NSURL(string = "App-Prefs:root")
+            val appSettingsURL = NSURL(string = UIApplicationOpenSettingsURLString)
             UIApplication.sharedApplication.openURL(
                 appSettingsURL,
                 options = emptyMap<Any?, Any?>()

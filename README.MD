@@ -22,7 +22,7 @@ KLocation is available on `mavenCentral()`.
 ## Install
 
 ```kotlin
-implementation("io.github.the-best-is-best:klocation:1.0.4")
+implementation("io.github.the-best-is-best:klocation:1.0.5")
 ```
 
 ### First in iosMain

@@ -14,7 +14,7 @@ class AppActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        AndroidKLocationService.initialization(this, AccuracyPriority.BALANCED_POWER_ACCURACY)
+        AndroidKLocationService.initialization(this, AccuracyPriority.HIGH_ACCURACY)
         setContent {
             KLocationService().ListenerToPermission()
             App()
