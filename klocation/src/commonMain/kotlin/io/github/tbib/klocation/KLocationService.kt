@@ -13,7 +13,7 @@ expect class KLocationService() {
     @Composable
     fun EnableLocation()
     fun isLocationEnabled(): Boolean
-    fun gpsStateFlow(): Flow<Boolean>
+    suspend  fun gpsStateFlow(): Flow<Boolean>
 
 
 }

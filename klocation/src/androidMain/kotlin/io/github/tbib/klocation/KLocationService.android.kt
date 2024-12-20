@@ -177,7 +177,7 @@ actual class KLocationService {
         }
     }
 
-    actual fun gpsStateFlow(): Flow<Boolean> = combine(
+    actual suspend fun gpsStateFlow(): Flow<Boolean> = combine(
         _isGPSEnabledFlow.asSharedFlow(),
         _isPermissionGranted.asSharedFlow()
     ) { isGPSEnabled, isPermissionGranted ->

@@ -22,25 +22,16 @@ class LocationViewModel : ViewModel() {
 
     fun init() {
         requestPermission = true
-        //  viewModelScope.launch {
-//
-//            try {
-//                controller.providePermission(Permission.LOCATION)
-//            } catch (e: Exception) {
-//
-//            }
-//
-//        }
 
         viewModelScope.launch {
 
 
             // Request location permission if not already granted
-            locationService.gpsStateFlow().collect { isGps ->
-                println("gps is $isGps")
-                isGPSOpen = isGps
-                addListenerLocation()
-            }
+                locationService.gpsStateFlow().collect { isGps ->
+                    println("gps is $isGps")
+                    isGPSOpen = isGps
+                    addListenerLocation()
+                }
 
         }
     }

@@ -4,12 +4,18 @@ import androidx.compose.runtime.Composable
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
@@ -57,7 +63,9 @@ actual class KLocationService : NSObject(), CLLocationManagerDelegateProtocol {
 
     override fun locationManagerDidChangeAuthorization(manager: CLLocationManager) {
         updateLocationPermissionState(locationManager)
-        emitCurrentGpsState()
+        MainScope().launch {
+            emitGpsState(manager)
+        }
     }
 
     override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
@@ -120,31 +128,40 @@ actual class KLocationService : NSObject(), CLLocationManagerDelegateProtocol {
     actual fun EnableLocation() {
         enableLocation()
     }
+    private suspend fun emitGpsState(manager: CLLocationManager) {
+        withContext(Dispatchers.Default) {
+        // Check if location services are enabled and the authorization status
+            val isEnabled = CLLocationManager.locationServicesEnabled() &&
+                    (manager.authorizationStatus == kCLAuthorizationStatusAuthorizedAlways ||
+                            manager.authorizationStatus == kCLAuthorizationStatusAuthorizedWhenInUse)
 
-    private fun emitCurrentGpsState() {
-        val isEnabled = CLLocationManager.locationServicesEnabled() &&
-                (locationManager.authorizationStatus == kCLAuthorizationStatusAuthorizedAlways ||
-                        locationManager.authorizationStatus == kCLAuthorizationStatusAuthorizedWhenInUse)
-        updateLocationPermissionState(locationManager)
-        _gpsStateFlow.tryEmit(isEnabled)
+            // Emit the updated state asynchronously
+            updateLocationPermissionState(manager)
+            _gpsStateFlow.tryEmit(isEnabled)
+        }
     }
+
 
     override fun locationManager(manager: CLLocationManager, didChangeAuthorizationStatus: Int) {
         updateLocationPermissionState(manager)
-        emitCurrentGpsState()
+        MainScope().launch {
+            emitGpsState(manager)
+        }
     }
 
-    actual fun gpsStateFlow(): Flow<Boolean> = channelFlow {
-        val initialState = CLLocationManager.locationServicesEnabled() &&
-                (locationManager.authorizationStatus == kCLAuthorizationStatusAuthorizedAlways ||
-                        locationManager.authorizationStatus == kCLAuthorizationStatusAuthorizedWhenInUse)
-        updateLocationPermissionState(locationManager)
-        send(initialState)
+    actual suspend fun gpsStateFlow(): Flow<Boolean> = channelFlow {
+        // Use withContext to shift to background thread for initial state check
+        val initialState = withContext(Dispatchers.IO) {
+            CLLocationManager.locationServicesEnabled() &&
+                    (locationManager.authorizationStatus == kCLAuthorizationStatusAuthorizedAlways ||
+                            locationManager.authorizationStatus == kCLAuthorizationStatusAuthorizedWhenInUse)
+        }
 
+        send(initialState) // Use 'send' instead of 'emit'
+
+        // Collect updates from _gpsStateFlow
         _gpsStateFlow.collect { isEnabled ->
-            updateLocationPermissionState(locationManager)
-
-            send(isEnabled)
+            send(isEnabled) // Send updates through the flow
         }
     }
 
