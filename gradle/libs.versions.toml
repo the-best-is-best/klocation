@@ -1,16 +1,16 @@
 [versions]
-kotlin = "2.1.0"
-compose = "1.7.1"
-agp = "8.7.1"
-androidx-activityCompose = "1.9.3"
-androidx-uiTest = "1.7.5"
-kotlinxCoroutinesCore = "1.9.0"
-lifecycleViewmodelCompose = "2.8.2"
-maven-publish = "0.30.0"
+kotlin = "2.1.20"
+compose = "1.7.3"
+agp = "8.9.0"
+androidx-activityCompose = "1.10.1"
+androidx-uiTest = "1.7.8"
+kotlinxCoroutinesCore = "1.10.1"
+lifecycleViewmodelCompose = "2.8.4"
+maven-publish = "0.31.0"
 permissions = "0.18.1"
 playServicesLocation = "21.3.0"
 lifecycleLivedataCoreKtx = "2.8.7"
-accompanistPermissions = "0.36.0"
+accompanistPermissions = "0.37.2"
 
 
 
